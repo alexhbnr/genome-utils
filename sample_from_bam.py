@@ -2,6 +2,7 @@ import random
 import argparse
 import sys
 from collections import Counter
+from itertools import chain
 import pysam
 from pybedtools import BedTool
 
@@ -58,39 +59,9 @@ def filter_out_damage(pileup_column, library_prep):
     return [site for site in pileup_column if not damage_at_site(site, library_prep)]
 
 
-def get_pileup_info(chrom, start, end, bam, ref_base):
-    '''Return a reference base and a list of bases at a given site.'''
-    site_pileup = []
-
-    for col in bam.pileup(chrom, start, end):
-        # analyze only columns within a specified region (pysam performs
-        # pileup on whole read lengths overlapping a given region otherwise)
-        if not (start <= col.pos < end): continue
-
-        # walk through all reads overlapping the current column
-        # and accumulate bases at that position
-        for pileup_read in col.pileups:
-            # skip deletions
-            if pileup_read.is_del: continue
-
-            pos_in_read = pileup_read.query_position
-            read_len = pileup_read.alignment.query_length
-            read_base = pileup_read.alignment.query_sequence[pos_in_read]
-            is_reverse = pileup_read.alignment.is_reverse
-
-            if read_base in "ACGT": 
-                site_pileup.append((ref_base,
-                                    read_base,
-                                    pos_in_read,
-                                    read_len,
-                                    is_reverse))
-
-    return site_pileup
-
-
 def call_base(pileup_info, sampling_method):
     """Return the most frequently occuring element of a list."""
-    bases = [base for _, base, _, _, _ in pileup_info]
+    bases = [base for base, _, _, _ in pileup_info]
 
     if sampling_method == 'majority':
         counts = Counter(bases).most_common()
@@ -101,38 +72,81 @@ def call_base(pileup_info, sampling_method):
     return random.choice(bases)
 
 
-def scan_bam(bam_file, bed_file, ref_file, library_prep, sampling_method):
+def bases_in_column(column):
+    '''Return a list of bases in a given pileup column.
+    '''
+    pileup = []
+
+    # walk through all reads overlapping the current column
+    # and accumulate bases at that position
+    for pileup_read in column.pileups:
+        # skip deletions
+        if pileup_read.is_del: continue
+
+        pos_in_read = pileup_read.query_position
+        read_len = pileup_read.alignment.query_length
+        read_base = pileup_read.alignment.query_sequence[pos_in_read]
+        is_reverse = pileup_read.alignment.is_reverse
+
+        if read_base in "ACGT": 
+            pileup.append((read_base,
+                           pos_in_read,
+                           read_len,
+                           is_reverse))
+
+    return pileup
+
+
+def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None, start=None, end=None):
+    '''Sample bases in a given region of the genome based on the pileup
+    of reads. If no coordinates were specified, sample from the whole BAM file.
+    '''
+    sampled_bases = []
+
+    for col in bam.pileup(chrom, start, end):
+        # if coordinates were specified, check first if a current column
+        # lies within this region (pysam pileui return whole reads overlapping
+        # a requested region, not just bases in this region)
+        if chrom and start and end and not (start <= col.pos < end):
+            continue
+        else:
+            ref_base = ref.fetch(col.reference_name, col.pos, col.pos + 1)
+
+            pileup_bases = bases_in_column(col)
+
+            if strand_check:
+                pileup_bases = filter_out_damage(pileup, strand_check)
+
+            # if there is any base in the pileup left, call one allele
+            if len(pileup_bases) > 0:
+                called_base = call_base(pileup_bases, sampling_method)
+                sampled_bases.append((col.reference_name,
+                                      col.pos + 1,
+                                      ref_base, called_base))
+
+    return sampled_bases
+
+
+def sample_in_regions(bam, bed, ref, sampling_method, library_prep=None):
     '''Sample alleles from the BAM file at each position specified in a BED
     file. Return the result as a list of tuples in the form of
     (chromosome, position, ref_base, called_base).
     '''
-    result = []
+    sampled_bases = []
 
-    with pysam.AlignmentFile(bam_file) as bam:
-        ref = pysam.FastaFile(ref_file)
-        bed = BedTool(bed_file)
+    for region in bed:
+        called_bases = sample_bases(bam, ref, sampling_method, library_prep,
+                                   region.chrom, region.start, region.end)
+        sampled_bases.append(called_bases)
 
-        # iterate through BED records and perform a pileup for each of them
-        for site in bed:
-            ref_base = ref.fetch(site.chrom, site.start, site.end)
-
-            pileup_at_site = get_pileup_info(site.chrom, site.start, site.end, bam, ref_base)
-
-            if library_prep:
-                pileup_at_site = filter_out_damage(pileup_at_site, library_prep)
-
-            if len(pileup_at_site) > 0:
-                called_base = call_base(pileup_at_site, sampling_method)
-                result.append((site.chrom, site.end, ref_base, called_base))
-
-    return result
+    return chain.from_iterable(sampled_bases)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Sample bases from BAM file')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
     parser.add_argument('--bed', help='BED file with coordinates of sites'
-                        'to sample at', required=True)
+                        'to sample at')
     parser.add_argument('--ref', help='FASTA reference', required=True)
     parser.add_argument('--output', help='Name of the output file '
                         '(direct output to stdout if missing)', default=None)
@@ -140,21 +154,27 @@ def main(argv=None):
                         choices=['majority', 'random'], required=True)
     parser.add_argument('--strand-check', help='How to check for damage '
                         '(this is determined by library preparation method)',
-                        choices=['USER', 'non-USER_term3', 'non-USER_all',
-                        'none'], default='none')
+                        choices=['USER', 'non-USER_term3', 'non-USER_all'],
+                        default=None)
 
     # if there were no arguments supplied to the main function, use sys.argv
     # (skipping the first element, i.e. the name of this script)
     args = parser.parse_args(argv if argv else sys.argv[1:])
 
-    # list to accumulate tuples of (chrom, pos, ref_base, called_base)
-    result = scan_bam(args.bam, args.bed, args.ref, args.strand_check,
-                      args.sampling_method)
+    bam = pysam.AlignmentFile(args.bam)
+    ref = pysam.FastaFile(args.ref)
 
-    for chrom, pos, ref_base, called_base in result:
-        print(chrom, pos, ref_base, called_base, sep="\t")
+    # if user specified a BED file, perform pileup on each region in that file
+    if args.bed:
+        bed = BedTool(args.bed)
+        results = sample_in_regions(bam, bed, ref, args.sampling_method, args.strand_check)
+    else: # otherwise scan the whole BAM file directly
+        results = sample_bases(bam, ref)
 
-    return result
+    for chrom, pos, ref_base, called_base in results:
+        print(chrom, pos, ref_base, called_base, sep='\t')
+
+    return results
 
 if __name__ == "__main__":
     main()
