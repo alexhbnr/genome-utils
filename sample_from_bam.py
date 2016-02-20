@@ -13,12 +13,14 @@ def terminal_base(pos, read_len, is_forward, library_prep):
     the patterns of substitutions (C->T, G->A) in damaged ancient DNA.
     '''
     is_terminal = False
+
     if library_prep == 'USER':
-        if not forward and ((pos == 0) or (read_len - pos <= 2)): terminal = True
-        if     forward and ((pos  < 2) or (read_len - pos == 1)): terminal = True
+        if     is_forward and ((pos == 0) or (read_len - pos <= 2)): is_terminal = True
+        if not is_forward and ((pos  < 2) or (read_len - pos == 1)): is_terminal = True
     if library_prep == 'non-USER_term3':
         if (pos < 3) or (read_len - pos <= 3): is_terminal = True
-    return terminal
+
+    return is_terminal
 
 
 def damage_at_site(pileup_site, library_prep):
