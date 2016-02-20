@@ -98,6 +98,33 @@ def call_base(pileup_info, sampling_method):
     return random.choice(bases)
 
 
+def scan_bam(bam_file, bed_file, ref_file, library_prep, sampling_method):
+    '''Sample alleles from the BAM file at each position specified in a BED
+    file. Return the result as a list of tuples in the form of
+    (chromosome, position, ref_base, called_base).
+    '''
+    result = []
+
+    with pysam.AlignmentFile(bam_file) as bam:
+        ref = pysam.FastaFile(ref_file)
+        bed = BedTool(bed_file)
+
+        # iterate through BED records and perform a pileup for each of them
+        for site in bed:
+            ref_base = ref.fetch(site.chrom, site.start, site.end)
+
+            pileup_at_site = get_pileup_info(site.chrom, site.start, site.end, bam, ref_base)
+
+            if library_prep:
+                pileup_at_site = filter_out_damage(pileup_at_site, library_prep)
+
+            if len(pileup_at_site) > 0:
+                called_base = call_base(pileup_at_site, sampling_method)
+                result.append((site.chrom, site.end, ref_base, called_base))
+
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Sample bases from BAM file')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
@@ -117,24 +144,8 @@ def main(argv=None):
     args = parser.parse_args(argv if argv else sys.argv[1:])
 
     # list to accumulate tuples of (chrom, pos, ref_base, called_base)
-    result = []
-
-    with pysam.AlignmentFile(args.bam) as bam:
-        ref = pysam.FastaFile(args.ref)
-        bed = BedTool(args.bed)
-
-        # iterate through BED records and perform a pileup for each of them
-        for site in bed:
-            ref_base = ref.fetch(site.chrom, site.start, site.end)
-
-            pileup_at_site = get_pileup_info(site.chrom, site.start, site.end, bam, ref_base)
-
-            if args.strand_check:
-                pileup_at_site = filter_out_damage(pileup_at_site, args.strand_check)
-
-            if len(pileup_at_site) > 0:
-                called_base = call_base(pileup_at_site, args.sampling_method)
-                result.append((site.chrom, site.end, ref_base, called_base))
+    result = scan_bam(args._bam, args._bed, args._ref, args._library_prep,
+                      args._sampling_method)
 
     for chrom, pos, ref_base, called_base in result:
         print(chrom, pos, ref_base, called_base, sep="\t")
