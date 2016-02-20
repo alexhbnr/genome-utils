@@ -6,21 +6,23 @@ import pysam
 from pybedtools import BedTool
 
 
-def terminal_base(pos, read_len, is_reverse, library_prep):
-    '''Check if a given position is on the beginning or the end a read.
-    What exactly is a 'beginning' and 'end' of a read is determined by
-    strand orientation and the library preparation method which influences
-    the patterns of substitutions (C->T, G->A) in damaged ancient DNA.
+def check_position(pos, read_len, reverse_strand, library_prep):
+    '''Test if a position in a read is potentially informative of ancient
+    DNA damage (C->T or G->A substitutions) given a library preparation
+    method.
     '''
-    is_terminal = False
-
     if library_prep == 'USER':
-        if not is_reverse and ((pos == 0) or (read_len - pos <= 2)): is_terminal = True
-        if     is_reverse and ((pos  < 2) or (read_len - pos == 1)): is_terminal = True
-    if library_prep == 'non-USER_term3':
-        if (pos < 3) or (read_len - pos <= 3): is_terminal = True
+        if not reverse_strand and ((pos == 0) or (read_len - pos <= 2)): return True
+        if     reverse_strand and ((pos  < 2) or (read_len - pos == 1)): return True
 
-    return is_terminal
+    elif library_prep == 'non-USER_term3' and ((pos < 3) or (read_len - pos <= 3)):
+        return True
+
+    elif library_prep == 'non-USER_all':
+        return True
+
+    else:
+        return False
 
 
 def damage_at_site(pileup_site, library_prep):
@@ -40,12 +42,13 @@ def damage_at_site(pileup_site, library_prep):
     '''
     ref_base, read_base, pos_in_read, read_len, reverse_strand = pileup_site
 
-    is_damaged = False
-    if library_prep in ['USER', 'non-USER_term3'] and  (ref_base == 'C' and read_base == 'T' and not reverse_strand and terminal_base(pos_in_read, read_len, reverse_strand, library_prep)): is_damaged = True
-    if library_prep in ['USER', 'non-USER_term3'] and  (ref_base == 'G' and read_base == 'A' and     reverse_strand and terminal_base(pos_in_read, read_len, reverse_strand, library_prep)): is_damaged = True
-    if library_prep == 'non-USER_all'             and ((ref_base == 'C' and read_base == 'T' and not reverse_strand) \
-                                                    or (ref_base == 'G' and read_base == 'A' and     reverse_strand)): is_damaged = True
-    return is_damaged
+    # if there is a potential C->T or G->A substitution, check if
+    # it occured on a position that is likely to carry ancient DNA damage
+    if ((ref_base == 'C' and read_base == 'T' and not reverse_strand) or \
+        (ref_base == 'G' and read_base == 'A' and     reverse_strand)):
+        return check_position(pos_in_read, read_len, reverse_strand, library_prep)
+
+    return False
 
  
 def filter_out_damage(pileup_column, library_prep):
