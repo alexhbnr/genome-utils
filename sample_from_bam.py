@@ -6,7 +6,7 @@ import pysam
 from pybedtools import BedTool
 
 
-def terminal_base(pos, read_len, is_forward, library_prep):
+def terminal_base(pos, read_len, is_reverse, library_prep):
     '''Check if a given position is on the beginning or the end a read.
     What exactly is a 'beginning' and 'end' of a read is determined by
     strand orientation and the library preparation method which influences
@@ -15,8 +15,8 @@ def terminal_base(pos, read_len, is_forward, library_prep):
     is_terminal = False
 
     if library_prep == 'USER':
-        if     is_forward and ((pos == 0) or (read_len - pos <= 2)): is_terminal = True
-        if not is_forward and ((pos  < 2) or (read_len - pos == 1)): is_terminal = True
+        if not is_reverse and ((pos == 0) or (read_len - pos <= 2)): is_terminal = True
+        if     is_reverse and ((pos  < 2) or (read_len - pos == 1)): is_terminal = True
     if library_prep == 'non-USER_term3':
         if (pos < 3) or (read_len - pos <= 3): is_terminal = True
 
@@ -40,12 +40,12 @@ def damage_at_site(pileup_site, library_prep):
     '''
     ref_base, read_base, pos_in_read, read_len, reverse_strand = pileup_site
 
-    damaged = False
-    if library_prep in ['USER', 'non-USER_term3'] and  (ref_base == 'C' and read_base == 'T' and not reverse_strand and terminal_base(pos_in_read, read_len, reverse_strand, library_prep)): damaged = True
-    if library_prep in ['USER', 'non-USER_term3'] and  (ref_base == 'G' and read_base == 'A' and     reverse_strand and terminal_base(pos_in_read, read_len, reverse_strand, library_prep)): damaged = True
+    is_damaged = False
+    if library_prep in ['USER', 'non-USER_term3'] and  (ref_base == 'C' and read_base == 'T' and not reverse_strand and terminal_base(pos_in_read, read_len, reverse_strand, library_prep)): is_damaged = True
+    if library_prep in ['USER', 'non-USER_term3'] and  (ref_base == 'G' and read_base == 'A' and     reverse_strand and terminal_base(pos_in_read, read_len, reverse_strand, library_prep)): is_damaged = True
     if library_prep == 'non-USER_all'             and ((ref_base == 'C' and read_base == 'T' and not reverse_strand) \
-                                                    or (ref_base == 'G' and read_base == 'A' and     reverse_strand)): damage_state = True
-    return damaged
+                                                    or (ref_base == 'G' and read_base == 'A' and     reverse_strand)): is_damaged = True
+    return is_damaged
 
  
 def filter_out_damage(pileup_column, library_prep):
@@ -135,7 +135,8 @@ def main(argv=None):
                         '(direct output to stdout if missing)', default=None)
     parser.add_argument('--sampling-method', help='Majority or random call?',
                         choices=['majority', 'random'], required=True)
-    parser.add_argument('--strand-check', help='How to check for damage?',
+    parser.add_argument('--strand-check', help='How to check for damage '
+                        '(this is determined by library preparation method)',
                         choices=['USER', 'non-USER_term3', 'non-USER_all',
                         'none'], default='none')
 
@@ -144,8 +145,8 @@ def main(argv=None):
     args = parser.parse_args(argv if argv else sys.argv[1:])
 
     # list to accumulate tuples of (chrom, pos, ref_base, called_base)
-    result = scan_bam(args._bam, args._bed, args._ref, args._library_prep,
-                      args._sampling_method)
+    result = scan_bam(args.bam, args.bed, args.ref, args.strand_check,
+                      args.sampling_method)
 
     for chrom, pos, ref_base, called_base in result:
         print(chrom, pos, ref_base, called_base, sep="\t")
