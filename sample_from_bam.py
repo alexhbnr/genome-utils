@@ -83,11 +83,11 @@ def get_pileup_info(chrom, start, end, bam, ref_base):
     return site_pileup
 
 
-def call_base(pileup_info, method):
+def call_base(pileup_info, sampling_method):
     """Return the most frequently occuring element of a list."""
     bases = [base for _, base, _, _, _ in pileup_info]
 
-    if method == 'majority':
+    if sampling_method == 'majority':
         counts = Counter(bases).most_common()
         # take all bases with the highest count
         max_freq = max(c[1] for c in counts)
@@ -104,7 +104,7 @@ def main(argv=None):
     parser.add_argument('--ref', help='FASTA reference', required=True)
     parser.add_argument('--output', help='Name of the output file '
                         '(direct output to stdout if missing)', default=None)
-    parser.add_argument('--method', help='Majority call or random sampling?',
+    parser.add_argument('--sampling-method', help='Majority or random call?',
                         choices=['majority', 'random'], required=True)
     parser.add_argument('--strand-check', help='How to check for damage?',
                         choices=['USER', 'non-USER_term3', 'non-USER_all',
@@ -131,7 +131,7 @@ def main(argv=None):
                 pileup_at_site = filter_out_damage(pileup_at_site, args.strand_check)
 
             if len(pileup_at_site) > 0:
-                called_base = call_base(pileup_at_site, args.method)
+                called_base = call_base(pileup_at_site, args.sampling_method)
                 result.append((site.chrom, site.end, ref_base, called_base))
 
     for chrom, pos, ref_base, called_base in result:
