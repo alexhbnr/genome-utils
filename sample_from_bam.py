@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import random
 import argparse
 import sys
@@ -8,17 +6,19 @@ import pysam
 from pybedtools import BedTool
 
 
-def terminal_base(pos_in_read, read_len, reverse_strand, library_prep):
-    '''Check if a position in a read is on a terminal end of the read
-    that is relevant for filtering based on a specified library preparation
-    method.'''
+def terminal_base(pos, read_len, is_forward, library_prep):
+    '''Check if a given position is on the beginning or the end a read.
+    What exactly is a 'beginning' and 'end' of a read is determined by
+    strand orientation and the library preparation method which influences
+    the patterns of substitutions (C->T, G->A) in damaged ancient DNA.
+    '''
     is_terminal = False
     if library_prep == 'USER':
-        if not reverse_strand and ((pos_in_read == 0) or (read_len - pos_in_read <= 2)): is_terminal = True
-        if     reverse_strand and ((pos_in_read  < 2) or (read_len - pos_in_read == 1)): is_terminal = True
+        if not forward and ((pos == 0) or (read_len - pos <= 2)): terminal = True
+        if     forward and ((pos  < 2) or (read_len - pos == 1)): terminal = True
     if library_prep == 'non-USER_term3':
-        if (pos_in_read < 3) or (read_len - pos_in_read <= 3): is_terminal = True
-    return is_terminal
+        if (pos < 3) or (read_len - pos <= 3): is_terminal = True
+    return terminal
 
 
 def damage_at_site(pileup_site, library_prep):
@@ -48,7 +48,7 @@ def damage_at_site(pileup_site, library_prep):
  
 def filter_out_damage(pileup_column, library_prep):
     '''Filter out bases in a given pileup column that are likely result
-    of DNA damage.
+    of DNA damage (C->T on forward strand, G->A on reverse strand).
     '''
     return [site for site in pileup_column if not damage_at_site(site, library_prep)]
 
@@ -99,22 +99,24 @@ def call_base(pileup_info, method):
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Sample bases from BAM file')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
-    parser.add_argument('--bed', help='BED file with sites to sample at',
-                        required=True)
+    parser.add_argument('--bed', help='BED file with coordinates of sites'
+                        'to sample at', required=True)
     parser.add_argument('--ref', help='FASTA reference', required=True)
     parser.add_argument('--output', help='Name of the output file '
-                        '(write to stdout if missing)', default=None)
+                        '(direct output to stdout if missing)', default=None)
     parser.add_argument('--method', help='Majority call or random sampling?',
                         choices=['majority', 'random'], required=True)
     parser.add_argument('--strand-check', help='How to check for damage?',
                         choices=['USER', 'non-USER_term3', 'non-USER_all',
                         'none'], default='none')
 
-    # if there were no arguments supplied to the function, use sys.argv
+    # if there were no arguments supplied to the main function, use sys.argv
     # (skipping the first element, i.e. the name of this script)
-    args = parser.parse_args(sys.argv[1:] if not argv else argv)
+    args = parser.parse_args(argv if argv else sys.argv[1:])
 
+    # list to accumulate tuples of (chrom, pos, ref_base, called_base)
     result = []
+
     with pysam.AlignmentFile(args.bam) as bam:
         ref = pysam.FastaFile(args.ref)
         bed = BedTool(args.bed)
@@ -130,10 +132,10 @@ def main(argv=None):
 
             if len(pileup_at_site) > 0:
                 called_base = call_base(pileup_at_site, args.method)
-                result.append((site.chrom, site.start, site.end, ref_base, called_base))
+                result.append((site.chrom, site.end, ref_base, called_base))
 
-    for chrom, start, end, ref_base, called_base in result:
-        print(chrom, start, end, ref_base, called_base, sep="\t")
+    for chrom, pos, ref_base, called_base in result:
+        print(chrom, pos, ref_base, called_base, sep="\t")
 
     return result
 
