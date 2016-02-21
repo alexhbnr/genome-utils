@@ -142,6 +142,30 @@ def sample_in_regions(bam, bed, ref, sampling_method, library_prep=None):
     return chain.from_iterable(sampled_bases)
 
 
+def print_vcf(results, sample_name, handle):
+    '''Print the results in a VCF format.'''
+    print('##fileformat=VCFv4.1\n'
+          '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
+          '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}'.
+          format(sample=sample_name), file=handle)
+
+    row = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
+    for chrom, pos, ref, called in results:
+        alt, gt = ('.', 0) if ref == called else (called, 1)
+        print(row.format(chrom=chrom, pos=pos, ref=ref, alt=alt, gt=gt),
+              file=handle)
+
+
+def print_bed(results, handle):
+    '''Print the results in a BED format.'''
+    row = '{chrom}\t{start}\t{end}\t{allele}'
+    for chrom, pos, ref, called in results:
+        print(row.format(chrom=chrom,
+                         start=pos -1,
+                         end=pos,
+                         allele=called), file=handle)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Sample bases from BAM file')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
@@ -150,7 +174,11 @@ def main(argv=None):
     parser.add_argument('--ref', help='FASTA reference', required=True)
     parser.add_argument('--output', help='Name of the output file '
                         '(direct output to stdout if missing)', default=None)
-    parser.add_argument('--sampling-method', help='Majority or random call?',
+    parser.add_argument('--format', help='Output in VCF-like format or simple'
+                        'BED-like position and allele format', choices=['VCF',
+                        'BED'], required=True)
+    parser.add_argument('--sample-name', help='Sample name to put in VCF')
+    parser.add_argument('--sampling-method', help='How to sample alleles?',
                         choices=['majority', 'random'], required=True)
     parser.add_argument('--strand-check', help='How to check for damage '
                         '(this is determined by library preparation method)',
@@ -160,6 +188,9 @@ def main(argv=None):
     # if there were no arguments supplied to the main function, use sys.argv
     # (skipping the first element, i.e. the name of this script)
     args = parser.parse_args(argv if argv else sys.argv[1:])
+
+    if args.format == 'VCF' and not args.sample_name:
+        parser.error('Sample has to be specified when outputting to VCF')
 
     bam = pysam.AlignmentFile(args.bam)
     ref = pysam.FastaFile(args.ref)
@@ -171,10 +202,17 @@ def main(argv=None):
     else: # otherwise scan the whole BAM file directly
         results = sample_bases(bam, ref)
 
-    for chrom, pos, ref_base, called_base in results:
-        print(chrom, pos, ref_base, called_base, sep='\t')
+    # output the results as specified by user
+    handle = open(args.output, 'w') if args.output else sys.stdout
 
-    return results
+    if args.format == 'VCF':
+        print_vcf(results, args.sample_name, handle)
+    elif args.format == 'BED':
+        print_bed(results, handle)
+
+    if args.output:
+        handle.close()
+
 
 if __name__ == "__main__":
     main()
