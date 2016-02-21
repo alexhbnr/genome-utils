@@ -61,7 +61,7 @@ def filter_out_damage(pileup_column, library_prep):
 
 def call_base(pileup_info, sampling_method):
     """Return the most frequently occuring element of a list."""
-    bases = [base for base, _, _, _ in pileup_info]
+    bases = [base for _, base, _, _, _ in pileup_info]
 
     if sampling_method == 'majority':
         counts = Counter(bases).most_common()
@@ -72,7 +72,7 @@ def call_base(pileup_info, sampling_method):
     return random.choice(bases)
 
 
-def bases_in_column(column):
+def bases_in_column(column, ref_base):
     '''Return a list of bases in a given pileup column.
     '''
     pileup = []
@@ -89,7 +89,8 @@ def bases_in_column(column):
         is_reverse = pileup_read.alignment.is_reverse
 
         if read_base in "ACGT": 
-            pileup.append((read_base,
+            pileup.append((ref_base,
+                           read_base,
                            pos_in_read,
                            read_len,
                            is_reverse))
@@ -112,10 +113,10 @@ def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None, start
         else:
             ref_base = ref.fetch(col.reference_name, col.pos, col.pos + 1)
 
-            pileup_bases = bases_in_column(col)
+            pileup_bases = bases_in_column(col, ref_base)
 
             if strand_check:
-                pileup_bases = filter_out_damage(pileup, strand_check)
+                pileup_bases = filter_out_damage(pileup_bases, strand_check)
 
             # if there is any base in the pileup left, call one allele
             if len(pileup_bases) > 0:
