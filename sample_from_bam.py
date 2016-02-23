@@ -7,16 +7,16 @@ import pysam
 from pybedtools import BedTool
 
 
-def check_position(pos, read_len, reverse_strand, library_prep):
+def check_position(pos, read_len, is_reverse, library_prep):
     '''Test if a position in a read is potentially informative of ancient
     DNA damage (C->T or G->A substitutions) given a library preparation
     method.
     '''
     if library_prep == 'USER':
-        if not reverse_strand and ((pos == 0) or (read_len - pos <= 2)): return True
-        if     reverse_strand and ((pos  < 2) or (read_len - pos == 1)): return True
+        if not is_reverse and (pos == 0 or read_len - pos <= 2): return True
+        if     is_reverse and (pos  < 2 or read_len - pos == 1): return True
 
-    elif library_prep == 'non-USER_term3' and ((pos < 3) or (read_len - pos <= 3)):
+    elif library_prep == 'non-USER_term3' and (pos < 3 or (read_len - pos <= 3)):
         return True
 
     elif library_prep == 'non-USER_all':
@@ -26,29 +26,30 @@ def check_position(pos, read_len, reverse_strand, library_prep):
         return False
 
 
-def damage_at_site(pileup_site, library_prep):
+def damage_at_site(pileup_info, library_prep):
     '''Ignore the base in the pileup of reads in case that:
-       A) - reference is C
-          - and: 
-              - USER treated: read shows T at the first 5' or last two 3' positions
-              - non-USER treated:
-                    a) read shows T at first three or last three positions
-                    b) read shows T anywhere on the forward read
-       B) - reference is G
-          - and:
-              - USER treated: read shows A at the first two 5' or last 3' positions
-              - non-USER treated:
-                    a) read shows A at first three or last three positions
-                    b) read shows A anywhere on the reverse read
+       A) reference is C
+          and:
+           - USER treated: read has T on the first position or on the last two
+           - non-USER treated:
+               a) read has T on first three or last three positions
+               b) read has T anywhere on the forward read
+       B) reference is G
+          and:
+           - USER treated: read has A on the first two positions or on the last
+           - non-USER treated:
+               a) read has A at first three or last three positions
+               b) read has A anywhere on the reverse read
     '''
-    ref_base, read_base, pos_in_read, read_len, reverse_strand = pileup_site
+    ref_base, read_base, pos_in_read, read_len, reverse_strand = pileup_info
 
-    # if there is a potential C->T or G->A substitution, check if
-    # it occured on a position that is likely to carry ancient DNA damage
+    # if there is a C->T (on forward strand) or G->A (on reverse strand)
+    # substitution at this site...
     if ((ref_base == 'C' and read_base == 'T' and not reverse_strand) or \
         (ref_base == 'G' and read_base == 'A' and     reverse_strand)):
-        return check_position(pos_in_read, read_len, reverse_strand, library_prep)
-
+        # ... check if it occured on a position likely to carry aDNA damage
+        return check_position(pos_in_read, read_len, reverse_strand,
+                              library_prep)
     return False
 
  
@@ -56,7 +57,8 @@ def filter_out_damage(pileup_column, library_prep):
     '''Filter out bases in a given pileup column that are likely result
     of DNA damage (C->T on forward strand, G->A on reverse strand).
     '''
-    return [site for site in pileup_column if not damage_at_site(site, library_prep)]
+    return [pileup_info for pileup_info in pileup_column
+                        if not damage_at_site(pileup_info, library_prep)]
 
 
 def call_base(pileup_info, sampling_method):
@@ -98,7 +100,8 @@ def bases_in_column(column, ref_base):
     return pileup
 
 
-def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None, start=None, end=None):
+def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None,
+                 start=None, end=None):
     '''Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     '''
@@ -199,7 +202,8 @@ def main(argv=None):
     # if user specified a BED file, perform pileup on each region in that file
     if args.bed:
         bed = BedTool(args.bed)
-        results = sample_in_regions(bam, bed, ref, args.sampling_method, args.strand_check)
+        results = sample_in_regions(bam, bed, ref, args.sampling_method,
+                                    args.strand_check)
     else: # otherwise scan the whole BAM file directly
         results = sample_bases(bam, ref)
 
