@@ -207,7 +207,7 @@ def main(argv=None):
         results = sample_in_regions(bam, bed, ref, args.method,
                                     args.strand_check)
     else: # otherwise scan the whole BAM file directly
-        results = sample_bases(bam, ref)
+        results = sample_bases(bam, ref, args.method)
 
     # output the results as specified by user
     handle = open(args.output, 'w') if args.output else sys.stdout
