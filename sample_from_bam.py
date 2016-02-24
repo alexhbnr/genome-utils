@@ -7,26 +7,26 @@ import pysam
 from pybedtools import BedTool
 
 
-def check_position(pos, read_len, is_reverse, library_prep):
+def check_position(pos, read_len, is_reverse, strand_check):
     '''Test if a position in a read is potentially informative of ancient
     DNA damage (C->T or G->A substitutions) given a library preparation
     method.
     '''
-    if library_prep == 'USER':
+    if strand_check == 'USER':
         if not is_reverse and (pos == 0 or read_len - pos <= 2): return True
         if     is_reverse and (pos  < 2 or read_len - pos == 1): return True
 
-    elif library_prep == 'non-USER_term3' and (pos < 3 or (read_len - pos <= 3)):
+    elif strand_check == 'non-USER_term3' and (pos < 3 or (read_len - pos <= 3)):
         return True
 
-    elif library_prep == 'non-USER_all':
+    elif strand_check == 'non-USER_all':
         return True
 
     else:
         return False
 
 
-def damage_at_site(pileup_info, library_prep):
+def damage_at_site(pileup_info, strand_check):
     '''Ignore the base in the pileup of reads in case that:
        A) reference is C
           and:
@@ -49,16 +49,16 @@ def damage_at_site(pileup_info, library_prep):
         (ref_base == 'G' and read_base == 'A' and     reverse_strand)):
         # ... check if it occured on a position likely to carry aDNA damage
         return check_position(pos_in_read, read_len, reverse_strand,
-                              library_prep)
+                              strand_check)
     return False
 
  
-def filter_out_damage(pileup_column, library_prep):
+def filter_out_damage(pileup_column, strand_check):
     '''Filter out bases in a given pileup column that are likely result
     of DNA damage (C->T on forward strand, G->A on reverse strand).
     '''
     return [pileup_info for pileup_info in pileup_column
-                        if not damage_at_site(pileup_info, library_prep)]
+                        if not damage_at_site(pileup_info, strand_check)]
 
 
 def call_base(pileup_info, sampling_method):
@@ -131,7 +131,7 @@ def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None,
     return sampled_bases
 
 
-def sample_in_regions(bam, bed, ref, sampling_method, library_prep=None):
+def sample_in_regions(bam, bed, ref, sampling_method, strand_check=None):
     '''Sample alleles from the BAM file at each position specified in a BED
     file. Return the result as a list of tuples in the form of
     (chromosome, position, ref_base, called_base).
@@ -139,8 +139,8 @@ def sample_in_regions(bam, bed, ref, sampling_method, library_prep=None):
     sampled_bases = []
 
     for region in bed:
-        called_bases = sample_bases(bam, ref, sampling_method, library_prep,
-                                   region.chrom, region.start, region.end)
+        called_bases = sample_bases(bam, ref, sampling_method, strand_check,
+                                    region.chrom, region.start, region.end)
         sampled_bases.append(called_bases)
 
     return chain.from_iterable(sampled_bases)
@@ -178,14 +178,13 @@ def main(argv=None):
     parser.add_argument('--ref', help='FASTA reference', required=True)
     parser.add_argument('--output', help='Name of the output file '
                         '(direct output to stdout if missing)', default=None)
-    parser.add_argument('--format', help='Output in VCF-like format or simple'
-                        'BED-like position and allele format', choices=['VCF',
-                        'BED'], required=True)
+    parser.add_argument('--format', help='Output as VCF or BED?',
+                        choices=['VCF', 'BED'], required=True)
     parser.add_argument('--sample-name', help='Sample name to put in VCF')
-    parser.add_argument('--sampling-method', help='How to sample alleles?',
+    parser.add_argument('--method', help='How to sample alleles?',
                         choices=['majority', 'random'], required=True)
-    parser.add_argument('--strand-check', help='How to check for damage '
-                        '(this is determined by library preparation method)',
+    parser.add_argument('--strand-check', help='How and where to check for '
+                        'damage? If not specified, no checks are performed.',
                         choices=['USER', 'non-USER_term3', 'non-USER_all'],
                         default=None)
 
@@ -202,7 +201,7 @@ def main(argv=None):
     # if user specified a BED file, perform pileup on each region in that file
     if args.bed:
         bed = BedTool(args.bed)
-        results = sample_in_regions(bam, bed, ref, args.sampling_method,
+        results = sample_in_regions(bam, bed, ref, args.method,
                                     args.strand_check)
     else: # otherwise scan the whole BAM file directly
         results = sample_bases(bam, ref)
