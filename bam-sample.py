@@ -176,6 +176,7 @@ def main(argv=None):
         ' by performing a majority call at each position (from the whole BAM'
         ' or limited to regions specified by a BED file).')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
+    parser.add_argument('--chrom', help='Chromosome to sample')
     parser.add_argument('--bed', help='BED file with coordinates of regions'
                         '/sites to sample')
     parser.add_argument('--ref', help='FASTA reference', required=True)
@@ -207,7 +208,8 @@ def main(argv=None):
         results = sample_in_regions(bam, bed, ref, args.method,
                                     args.strand_check)
     else: # otherwise scan the whole BAM file directly
-        results = sample_bases(bam, ref, args.method)
+        results = sample_bases(bam, ref, args.method, args.strand_check,
+                               args.chrom)
 
     # output the results as specified by user
     handle = open(args.output, 'w') if args.output else sys.stdout
