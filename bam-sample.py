@@ -171,10 +171,13 @@ def print_bed(results, handle):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Sample bases from BAM file')
+    parser = argparse.ArgumentParser(description='Sample alleles from a given'
+        ' BAM file based on pileup of reads, either by drawing random bases or'
+        ' by performing a majority call at each position (from the whole BAM'
+        ' or limited to regions specified by a BED file).')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
-    parser.add_argument('--bed', help='BED file with coordinates of sites'
-                        'to sample at')
+    parser.add_argument('--bed', help='BED file with coordinates of regions'
+                        '/sites to sample')
     parser.add_argument('--ref', help='FASTA reference', required=True)
     parser.add_argument('--output', help='Name of the output file '
                         '(direct output to stdout if missing)', default=None)
