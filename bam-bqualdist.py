@@ -9,9 +9,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-MAX_BQUAL = 60
-
-
 def get_bquals(read):
     '''Return a list of base qualities in a given read.'''
     return [q - 33 for q in read.qual]
@@ -38,12 +35,16 @@ def subsample_reads(bam, sample_size):
 
 def plot_dist(bquals, bamfile, plotfile):
     '''Plot the distribution of base qualities.'''
-    plt.hist(bquals, bins=MAX_BQUAL, range=(0, MAX_BQUAL), normed=True)
+    max_bqual = 60
+
+    plt.hist(bquals, bins=max_bqual, range=(0, max_bqual), normed=True)
     plt.title('Distribution of base qualities in ' + basename(bamfile))
     plt.xlabel('base quality [Phred scaled]')
     plt.ylabel('probability density')
+
     # determine the plot output format from the specified image extension
     plot_format = splitext(plotfile)[1][1:]
+
     plt.savefig(plotfile, format=plot_format)
 
 
