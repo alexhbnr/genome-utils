@@ -15,9 +15,7 @@ def get_bquals(read):
 
 
 def subsample_reads(bam, sample_size):
-    '''Perform reservoir sampling to get a subset of reads in a BAM
-    file with size 'sample_size'.
-    '''
+    '''Perform reservoir sampling to get a subset of reads from a BAM file.'''
     # take the first sample of candidate reads of size 'sample_size'
     sampled_reads = [read for read in islice(bam.fetch(), sample_size)]
 
@@ -50,22 +48,20 @@ def plot_dist(bquals, bamfile, plotfile):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Analyze the distribution of '
-        'base qualities in a subset of reads in a given BAM file')
+        'base qualities in a subset of reads from a given BAM file')
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
-    parser.add_argument('--plotfile', help='Filename of the plot to produce '
+    parser.add_argument('--plotfile', help='Name of the output plot file '
                         '(the format can be png, pdf, ps, eps, svg)',
                         required=True)
-    parser.add_argument('--subset-size', help='Number of reads to sample',
+    parser.add_argument('--subsample', help='Number of reads to sample',
                         default=10000)
     args = parser.parse_args(argv if argv else sys.argv[1:])
 
     bam = pysam.AlignmentFile(args.bam)
-
-    reads = subsample_reads(bam, args.subset_size)
+    reads = subsample_reads(bam, args.subsample)
 
     bquals = np.fromiter(chain.from_iterable(get_bquals(r) for r in reads),
                          np.int)
-
     plot_dist(bquals, args.bam, args.plotfile)
 
 
