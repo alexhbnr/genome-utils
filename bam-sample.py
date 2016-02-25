@@ -1,6 +1,7 @@
 import random
 import argparse
 import sys
+import functools
 from collections import Counter
 from itertools import chain
 import pysam
@@ -100,13 +101,11 @@ def bases_in_column(column, ref_base):
     return pileup
 
 
-def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None,
-                 start=None, end=None):
+def sample_bases(bam, ref, sampling_method, print_fn, strand_check=None,
+                 chrom=None, start=None, end=None):
     '''Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     '''
-    sampled_bases = []
-
     for col in bam.pileup(chrom, start, end):
         # if coordinates were specified, check first if a current column
         # lies within this region (pysam pileui return whole reads overlapping
@@ -124,50 +123,34 @@ def sample_bases(bam, ref, sampling_method, strand_check=None, chrom=None,
             # if there is any base in the pileup left, call one allele
             if len(pileup_bases) > 0:
                 called_base = call_base(pileup_bases, sampling_method)
-                sampled_bases.append((col.reference_name,
-                                      col.pos + 1,
-                                      ref_base, called_base))
-
-    return sampled_bases
+                print_fn(col.reference_name, col.pos + 1, ref_base,
+                         called_base)
 
 
-def sample_in_regions(bam, bed, ref, sampling_method, strand_check=None):
+def sample_in_regions(bam, bed, ref, sampling_method, print_fn,
+                      strand_check=None):
     '''Sample alleles from the BAM file at each position specified in a BED
     file. Return the result as a list of tuples in the form of
     (chromosome, position, ref_base, called_base).
     '''
-    sampled_bases = []
-
     for region in bed:
-        called_bases = sample_bases(bam, ref, sampling_method, strand_check,
-                                    region.chrom, region.start, region.end)
-        sampled_bases.append(called_bases)
-
-    return chain.from_iterable(sampled_bases)
+        sample_bases(bam, ref, sampling_method, print_fn, strand_check,
+                     region.chrom, region.start, region.end)
 
 
-def print_vcf(results, sample_name, handle):
-    '''Print the results in a VCF format.'''
+def print_vcf_header(sample_name, handle):
+    '''Print VCF header.'''
     print('##fileformat=VCFv4.1\n'
           '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
           '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}'.
           format(sample=sample_name), file=handle)
 
-    row = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
-    for chrom, pos, ref, called in results:
-        alt, gt = ('.', 0) if ref == called else (called, 1)
-        print(row.format(chrom=chrom, pos=pos, ref=ref, alt=alt, gt=gt),
-              file=handle)
 
-
-def print_bed(results, handle):
-    '''Print the results in a BED format.'''
-    row = '{chrom}\t{start}\t{end}\t{allele}'
-    for chrom, pos, ref, called in results:
-        print(row.format(chrom=chrom,
-                         start=pos -1,
-                         end=pos,
-                         allele=called), file=handle)
+def print_record(chrom, pos, ref, called, rec_fmt, handle):
+    '''Print information about sampled site in a given string format.'''
+    alt, gt = ('.', 0) if ref == called else (called, 1)
+    print(rec_fmt.format(chrom=chrom, start=pos - 1, end=pos, pos=pos,
+          ref=ref, allele=called, alt=alt, gt=gt))
 
 
 def main(argv=None):
@@ -176,6 +159,7 @@ def main(argv=None):
         ' by performing a majority call at each position (from the whole BAM'
         ' or limited to regions specified by a BED file).')
     parser.add_argument('--bam', help='BAM file to sample from', required=True)
+    parser.add_argument('--chrom', help='Chromosome to sample')
     parser.add_argument('--bed', help='BED file with coordinates of regions'
                         '/sites to sample')
     parser.add_argument('--ref', help='FASTA reference', required=True)
@@ -201,21 +185,25 @@ def main(argv=None):
     bam = pysam.AlignmentFile(args.bam)
     ref = pysam.FastaFile(args.ref)
 
-    # if user specified a BED file, perform pileup on each region in that file
-    if args.bed:
-        bed = BedTool(args.bed)
-        results = sample_in_regions(bam, bed, ref, args.method,
-                                    args.strand_check)
-    else: # otherwise scan the whole BAM file directly
-        results = sample_bases(bam, ref, args.method)
-
     # output the results as specified by user
     handle = open(args.output, 'w') if args.output else sys.stdout
 
     if args.format == 'VCF':
-        print_vcf(results, args.sample_name, handle)
-    elif args.format == 'BED':
-        print_bed(results, handle)
+        print_vcf_header(args.sample_name, handle)
+        rec_fmt = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
+    else:
+        rec_fmt = '{chrom}\t{start}\t{end}\t{allele}'
+
+    print_fn = functools.partial(print_record, rec_fmt=rec_fmt, handle=handle)
+
+    # if user specified a BED file, perform pileup on each region in that file
+    if args.bed:
+        bed = BedTool(args.bed)
+        sample_in_regions(bam, bed, ref, args.method, print_fn,
+                          args.strand_check)
+    else: # otherwise scan the whole BAM file directly
+        sample_bases(bam, ref, args.method, print_fn, args.strand_check,
+                     args.chrom)
 
     if args.output:
         handle.close()
