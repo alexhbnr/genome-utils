@@ -146,19 +146,11 @@ def print_vcf_header(sample_name, handle):
           format(sample=sample_name), file=handle)
 
 
-def print_vcf_record(chrom, pos, ref, called, handle):
-    '''Print data from a allele call in a VCF format.'''
-    row = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
+def print_record(chrom, pos, ref, called, rec_fmt, handle):
+    '''Print information about sampled site in a given string format.'''
     alt, gt = ('.', 0) if ref == called else (called, 1)
-    print(row.format(chrom=chrom, pos=pos, ref=ref, alt=alt, gt=gt),
-          file=handle)
-
-
-def print_bed_record(chrom, pos, ref, called, handle):
-    '''Print data from a allele call in a BED format.'''
-    row = '{chrom}\t{start}\t{end}\t{allele}'
-    print(row.format(chrom=chrom, start=pos -1, end=pos, allele=called),
-          file=handle)
+    print(rec_fmt.format(chrom=chrom, start=pos - 1, end=pos, pos=pos,
+          ref=ref, allele=called, alt=alt, gt=gt))
 
 
 def main(argv=None):
@@ -198,9 +190,11 @@ def main(argv=None):
 
     if args.format == 'VCF':
         print_vcf_header(args.sample_name, handle)
-        print_fn = functools.partial(print_vcf_record, handle=handle)
+        rec_fmt = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
     else:
-        print_fn = functools.partial(print_bed_record, handle=handle)
+        rec_fmt = '{chrom}\t{start}\t{end}\t{allele}'
+
+    print_fn = functools.partial(print_record, rec_fmt=rec_fmt, handle=handle)
 
     # if user specified a BED file, perform pileup on each region in that file
     if args.bed:
