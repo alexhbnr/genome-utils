@@ -179,7 +179,8 @@ def main(argv=None):
                         choices=['USER', 'non-USER_term3', 'non-USER_all'],
                         default=None)
     parser.add_argument('--minbq', help='Minimal quality of a base to be '
-                        'considered for sampling', type=int, default=0)
+                        'considered for sampling (inclusive)', type=int,
+                        default=0)
 
     # if there were no arguments supplied to the main function, use sys.argv
     # (skipping the first element, i.e. the name of this script)
