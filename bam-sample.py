@@ -27,7 +27,7 @@ def check_position(pos, read_len, is_reverse, strand_check):
         return False
 
 
-def damage_at_site(pileup_info, strand_check):
+def damage_at_site(pileup_info, strand_check=None):
     '''Ignore the base in the pileup of reads in case that:
        A) reference is C
           and:
@@ -42,7 +42,9 @@ def damage_at_site(pileup_info, strand_check):
                a) read has A at first three or last three positions
                b) read has A anywhere on the reverse read
     '''
-    ref_base, read_base, pos_in_read, read_len, reverse_strand = pileup_info
+    if not strand_check: return False
+
+    ref_base, read_base, pos_in_read, read_len, reverse_strand, _ = pileup_info
 
     # if there is a C->T (on forward strand) or G->A (on reverse strand)
     # substitution at this site...
@@ -54,17 +56,19 @@ def damage_at_site(pileup_info, strand_check):
     return False
 
  
-def filter_out_damage(pileup_column, strand_check):
+def filter_bases(pileup_column, strand_check, minbq):
     '''Filter out bases in a given pileup column that are likely result
-    of DNA damage (C->T on forward strand, G->A on reverse strand).
+    of DNA damage (C->T on forward strand, G->A on reverse strand) as
+    well as bases bellow a certain base quality cut-off.
     '''
     return [pileup_info for pileup_info in pileup_column
-                        if not damage_at_site(pileup_info, strand_check)]
+                        if not damage_at_site(pileup_info, strand_check) \
+                            and minbq <= pileup_info[5]]
 
 
 def call_base(pileup_info, sampling_method):
     """Return the most frequently occuring element of a list."""
-    bases = [base for _, base, _, _, _ in pileup_info]
+    bases = [base for _, base, _, _, _, _ in pileup_info]
 
     if sampling_method == 'majority':
         counts = Counter(bases).most_common()
@@ -90,19 +94,21 @@ def bases_in_column(column, ref_base):
         read_len = pileup_read.alignment.query_length
         read_base = pileup_read.alignment.query_sequence[pos_in_read]
         is_reverse = pileup_read.alignment.is_reverse
+        baseq = pileup_read.alignment.qual[pos_in_read] - 33
 
-        if read_base in "ACGT": 
+        if read_base in "ACGT":
             pileup.append((ref_base,
                            read_base,
                            pos_in_read,
                            read_len,
-                           is_reverse))
+                           is_reverse,
+                           baseq))
 
     return pileup
 
 
-def sample_bases(bam, ref, sampling_method, print_fn, strand_check=None,
-                 chrom=None, start=None, end=None):
+def sample_bases(bam, ref, sampling_method, print_fn, minbq,
+                 strand_check=None, chrom=None, start=None, end=None):
     '''Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     '''
@@ -116,9 +122,7 @@ def sample_bases(bam, ref, sampling_method, print_fn, strand_check=None,
             ref_base = ref.fetch(col.reference_name, col.pos, col.pos + 1)
 
             pileup_bases = bases_in_column(col, ref_base)
-
-            if strand_check:
-                pileup_bases = filter_out_damage(pileup_bases, strand_check)
+            pileup_bases = filter_bases(pileup_bases, strand_check, minbq)
 
             # if there is any base in the pileup left, call one allele
             if len(pileup_bases) > 0:
@@ -128,13 +132,13 @@ def sample_bases(bam, ref, sampling_method, print_fn, strand_check=None,
 
 
 def sample_in_regions(bam, bed, ref, sampling_method, print_fn,
-                      strand_check=None):
+                      minbq, strand_check=None):
     '''Sample alleles from the BAM file at each position specified in a BED
     file. Return the result as a list of tuples in the form of
     (chromosome, position, ref_base, called_base).
     '''
     for region in bed:
-        sample_bases(bam, ref, sampling_method, print_fn, strand_check,
+        sample_bases(bam, ref, sampling_method, print_fn, minbq, strand_check,
                      region.chrom, region.start, region.end)
 
 
@@ -174,6 +178,8 @@ def main(argv=None):
                         'damage? If not specified, no checks are performed.',
                         choices=['USER', 'non-USER_term3', 'non-USER_all'],
                         default=None)
+    parser.add_argument('--minbq', help='Minimal quality of a base to be '
+                        'considered for sampling', type=int, default=0)
 
     # if there were no arguments supplied to the main function, use sys.argv
     # (skipping the first element, i.e. the name of this script)
@@ -200,10 +206,10 @@ def main(argv=None):
     if args.bed:
         bed = BedTool(args.bed)
         sample_in_regions(bam, bed, ref, args.method, print_fn,
-                          args.strand_check)
+                          args.minbq, args.strand_check)
     else: # otherwise scan the whole BAM file directly
-        sample_bases(bam, ref, args.method, print_fn, args.strand_check,
-                     args.chrom)
+        sample_bases(bam, ref, args.method, print_fn, args.minbq,
+                     args.strand_check, args.chrom)
 
     if args.output:
         handle.close()
