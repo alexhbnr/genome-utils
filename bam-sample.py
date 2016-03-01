@@ -1,11 +1,14 @@
 import random
 import argparse
 import sys
+import signal
 import functools
 from collections import Counter
 from itertools import chain
 import pysam
 from pybedtools import BedTool
+
+signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
 def check_position(pos, read_len, is_reverse, strand_check):
