@@ -97,7 +97,7 @@ def bases_in_column(column, ref_base):
         read_len = pileup_read.alignment.query_length
         read_base = pileup_read.alignment.query_sequence[pos_in_read]
         is_reverse = pileup_read.alignment.is_reverse
-        baseq = pileup_read.alignment.qual[pos_in_read] - 33
+        baseq = ord(pileup_read.alignment.qual[pos_in_read]) - 33
 
         if read_base in "ACGT":
             pileup.append((ref_base,
