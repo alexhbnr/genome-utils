@@ -21,6 +21,9 @@ def check_position(pos, read_len, is_reverse, strand_check):
         if not is_reverse and (pos == 0 or read_len - pos <= 2): return True
         if     is_reverse and (pos  < 2 or read_len - pos == 1): return True
 
+    elif strand_check == 'USER_term5' and (pos < 5 or (read_len - pos <= 5)):
+        return True
+
     elif strand_check == 'non-USER_term3' and (pos < 3 or (read_len - pos <= 3)):
         return True
 
@@ -185,8 +188,8 @@ def main(argv=None):
                         choices=['majority', 'random'], required=True)
     parser.add_argument('--strand-check', help='How and where to check for '
                         'damage? If not specified, no checks are performed.',
-                        choices=['USER', 'non-USER_term3', 'non-USER_all'],
-                        default=None)
+                        choices=['USER', 'USER_term5', 'non-USER_term3',
+                                 'non-USER_all'], default=None)
     parser.add_argument('--minbq', help='Minimal quality of a base to be '
                         'considered for sampling (inclusive)', type=int,
                         default=0)
