@@ -1,11 +1,10 @@
 import argparse
 import os.path
+from collections import defaultdict
 import pysam
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from collections import defaultdict
-matplotlib.style.use('ggplot')
 
 
 def count_read_lengths(bam_path):
