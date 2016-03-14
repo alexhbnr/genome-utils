@@ -3,6 +3,7 @@ import argparse
 import sys
 import signal
 import functools
+import math
 from collections import Counter
 from itertools import chain
 import pysam
@@ -110,8 +111,8 @@ def bases_in_column(column, ref_base):
     return pileup
 
 
-def sample_bases(bam, ref, sampling_method, print_fn, minbq,
-                 strand_check=None, chrom=None, start=None, end=None):
+def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
+                 maxcov, strand_check=None, chrom=None, start=None, end=None):
     '''Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     '''
@@ -125,6 +126,11 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq,
             ref_base = ref.fetch(col.reference_name, col.pos, col.pos + 1)
 
             pileup_bases = bases_in_column(col, ref_base)
+
+            # skip the position if it does not pass coverage filter
+            if not (mincov <= len(pileup_bases) <= maxcov): continue
+
+            # filter out low qual bases or those that are most likely damage
             pileup_bases = filter_bases(pileup_bases, strand_check, minbq)
 
             # if there is any base in the pileup left, call one allele
@@ -135,14 +141,14 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq,
 
 
 def sample_in_regions(bam, bed, ref, sampling_method, print_fn,
-                      minbq, strand_check=None):
+                      minbq, mincov, maxcov, strand_check=None):
     '''Sample alleles from the BAM file at each position specified in a BED
     file. Return the result as a list of tuples in the form of
     (chromosome, position, ref_base, called_base).
     '''
     for region in bed:
-        sample_bases(bam, ref, sampling_method, print_fn, minbq, strand_check,
-                     region.chrom, region.start, region.end)
+        sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
+                     maxcov, strand_check, region.chrom, region.start, region.end)
 
 
 def print_vcf_header(sample_name, handle):
@@ -184,6 +190,10 @@ def main(argv=None):
     parser.add_argument('--minbq', help='Minimal quality of a base to be '
                         'considered for sampling (inclusive)', type=int,
                         default=0)
+    parser.add_argument('--mincov', help='Required minimal coverage at '
+                        'a position (inclusive)', type=int, default=1)
+    parser.add_argument('--maxcov', help='Required maximal coverage at '
+                        'a position (inclusive)', type=int, default=math.inf)
 
     # if there were no arguments supplied to the main function, use sys.argv
     # (skipping the first element, i.e. the name of this script)
@@ -210,10 +220,12 @@ def main(argv=None):
     if args.bed:
         bed = BedTool(args.bed)
         sample_in_regions(bam, bed, ref, args.method, print_fn,
-                          args.minbq, args.strand_check)
+                          args.minbq, args.mincov, args.maxcov,
+                          args.strand_check)
     else: # otherwise scan the whole BAM file directly
         sample_bases(bam, ref, args.method, print_fn, args.minbq,
-                     args.strand_check, args.chrom)
+                     args.mincov, args.maxcov, args.strand_check,
+                     args.chrom)
 
     if args.output:
         handle.close()
