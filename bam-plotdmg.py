@@ -116,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
     parser.add_argument('--format', help='Format of the output image',
                         default='png')
-    args = parser.parse_args('--bam /mnt/expressions/mp/archaic-y/bam/sidron_ontarget.bam'.split())
+    args = parser.parse_args()
 
     fwd_mismatches, rev_mismatches = analyze_bam(args.bam, args.len_limit)
     save_mismatches(fwd_mismatches, 'forward', args.dir, args.bam, args.len_limit)
