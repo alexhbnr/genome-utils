@@ -215,7 +215,7 @@ def main(argv=None):
         print_vcf_header(args.sample_name, handle)
         rec_fmt = '{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.\tGT\t{gt}'
     else:
-        rec_fmt = '{chrom}\t{start}\t{end}\t{allele}'
+        rec_fmt = '{chrom}\t{start}\t{end}\t{ref}\t{allele}'
 
     print_fn = functools.partial(print_record, rec_fmt=rec_fmt, handle=handle)
 
