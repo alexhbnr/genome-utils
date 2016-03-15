@@ -102,7 +102,7 @@ def plot_mismatches(mismatch_table, title, ylim=30):
     return fig
 
     
-def save_mismatches(mismatch_table, strand, output_dir, bam_file, len_limit, ylim=30):
+def save_mismatches(mismatch_table, strand, ylim, output_dir, bam_file, len_limit):
     title = strand + ' strand ' + '-- ' + os.path.basename(bam_file)
     fig = plot_mismatches(mismatch_table, title, ylim)
     output_file = strand + '_damage_' + os.path.basename(bam_file) + '.png'
@@ -112,12 +112,15 @@ def save_mismatches(mismatch_table, strand, output_dir, bam_file, len_limit, yli
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('Analyze damage patterns in a BAM file')
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
-    parser.add_argument('--len_limit', help='How deep into a read to look for damage?', default=20)
+    parser.add_argument('--len_limit', help='How deep into a read to look for damage?',
+                        type=int, default=20)
+    parser.add_argument('--ylim', help='Upper limit on percentage in the plot',
+                        type=int, default=20)
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
     parser.add_argument('--format', help='Format of the output image',
                         default='png')
     args = parser.parse_args()
 
     fwd_mismatches, rev_mismatches = analyze_bam(args.bam, args.len_limit)
-    save_mismatches(fwd_mismatches, 'forward', args.dir, args.bam, args.len_limit)
-    save_mismatches(rev_mismatches, 'reverse', args.dir, args.bam, args.len_limit)
+    save_mismatches(fwd_mismatches, 'forward', args.ylim, args.dir, args.bam, args.len_limit)
+    save_mismatches(rev_mismatches, 'reverse', args.ylim, args.dir, args.bam, args.len_limit)
