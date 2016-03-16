@@ -20,10 +20,9 @@ def mismatch(b1, b2):
     return b1 + '-' + b2
 
 
-def mismatch_combs():
-    '''Generate all combinations of possible mismatches of DNA bases.'''
-    return [mismatch(b1, b2) for b1 in BASES
-                             for b2 in BASES if b1 != b2]
+# all possible combinations of mismatches
+MISMATCHES = [mismatch(b1, b2) for b1 in BASES
+                               for b2 in BASES if b1 != b2]
 
 
 def count_mismatches(mism5_count, mism3_count, ref5_count, ref3_count,
@@ -46,7 +45,6 @@ def count_mismatches(mism5_count, mism3_count, ref5_count, ref3_count,
         # if there's a mismatch on this position, increment the counter
         if b_ref != b_read:
             key = mismatch(b_ref, b_read)
-
             if pos     < len_limit: mism5_count.ix[pos, key] += 1
             if rev_pos < len_limit: mism3_count.ix[len_limit - rev_pos - 1, key] += 1
 
@@ -66,8 +64,8 @@ def analyze_bam(bam_path, len_limit=15):
     reads.
     '''   
     # initialize counters of mismatches from 5' and 3' ends of reads
-    mism5_counts = pd.DataFrame(0, columns=mismatch_combs(), index=range(len_limit))
-    mism3_counts = pd.DataFrame(0, columns=mismatch_combs(), index=range(len_limit))
+    mism5_counts = pd.DataFrame(0, columns=MISMATCHES, index=range(len_limit))
+    mism3_counts = pd.DataFrame(0, columns=MISMATCHES, index=range(len_limit))
 
     # initialize counters of reference bases from the 5' and 3' ends of reads
     ref5_counts = pd.DataFrame(0, columns=list(BASES), index=range(len_limit))
@@ -128,14 +126,14 @@ if __name__ == "__main__":
     parser.add_argument('--len_limit', help='How deep into reads to look '
                         'for damage?', type=int, default=30)
     parser.add_argument('--which', help='Which substitutions to plot?',
-                        nargs='*', default=mismatch_combs())
+                        nargs='*', default=MISMATCHES)
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
     parser.add_argument('--format', help='Format of the output image',
                         default='png')
     args = parser.parse_args()
 
-    if not set(args.which).issubset(mismatch_combs()):
-        print('The only valid substitution patterns are:', ', '.join(mismatch_combs()))
+    if not set(args.which).issubset(MISMATCHES):
+        print('The only valid substitution patterns are:', ', '.join(MISMATCHES))
         sys.exit()
 
     mism5_freqs, mism3_freqs = analyze_bam(args.bam, args.len_limit)
