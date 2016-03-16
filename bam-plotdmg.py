@@ -1,3 +1,4 @@
+import sys
 import argparse
 import os.path
 from collections import defaultdict
@@ -126,11 +127,17 @@ if __name__ == "__main__":
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
     parser.add_argument('--len_limit', help='How deep into reads to look '
                         'for damage?', type=int, default=30)
+    parser.add_argument('--which', help='Which substitutions to plot?',
+                        nargs='*', default=mismatch_combs())
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
     parser.add_argument('--format', help='Format of the output image',
                         default='png')
     args = parser.parse_args()
 
+    if not set(args.which).issubset(mismatch_combs()):
+        print('The only valid substitution patterns are:', ', '.join(mismatch_combs()))
+        sys.exit()
+
     mism5_freqs, mism3_freqs = analyze_bam(args.bam, args.len_limit)
-    save_mismatches(mism5_freqs, 5, args.dir, args.bam, args.len_limit)
-    save_mismatches(mism3_freqs, 3, args.dir, args.bam, args.len_limit)
+    save_mismatches(mism5_freqs[args.which], 5, args.dir, args.bam, args.len_limit)
+    save_mismatches(mism3_freqs[args.which], 3, args.dir, args.bam, args.len_limit)
