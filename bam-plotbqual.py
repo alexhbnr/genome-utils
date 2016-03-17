@@ -41,7 +41,7 @@ def plot_dist(bquals, bamfile):
     plt.xlabel('base quality [Phred scaled]')
     plt.ylabel('probability density')
 
-    plt.savefig(basename(bamfile) + '.svg', format='svg')
+    plt.savefig('bqdist_' + basename(bamfile) + '.svg', format='svg')
 
 
 def main(argv=None):
