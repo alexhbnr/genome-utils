@@ -11,7 +11,7 @@ import seaborn as sns
 
 def get_bquals(read):
     '''Return a list of base qualities in a given read.'''
-    return [q - 33 for q in read.qual]
+    return [ord(q) - 33 for q in read.qual]
 
 
 def subsample_reads(bam, sample_size):
