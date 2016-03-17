@@ -105,7 +105,7 @@ def plot_mismatches(mism_freqs, read_end):
     mism_freqs.plot(linewidth=3, figsize=(13, 9), fontsize=15)
     plt.title('mismatches from the ' + end_str, fontsize=20)
     plt.xlabel('position from the ' + end_str, fontsize=16)
-    plt.ylabel('fraction of mismatch type at a position [%]', fontsize=16)
+    plt.ylabel('proportion of mismatches', fontsize=16)
     plt.xticks(range(0, len(mism_freqs), 5))
 
     return fig
