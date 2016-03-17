@@ -93,7 +93,7 @@ def analyze_bam(bam_path, len_limit=15):
     mism5_freqs = calc_frequencies(mism5_counts, ref5_counts)
     mism3_freqs = calc_frequencies(mism3_counts, ref3_counts)
 
-    return mism5_freqs, mism3_freqs
+    return mism5_freqs, mism3_freqs[::-1]
 
 
 def plot_mismatches(mism_freqs, read_end):
