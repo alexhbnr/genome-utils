@@ -46,7 +46,7 @@ def count_mismatches(mism5_count, mism3_count, ref5_count, ref3_count,
         if b_ref != b_read:
             key = mismatch(b_ref, b_read)
             if pos     < len_limit: mism5_count.ix[pos, key] += 1
-            if rev_pos < len_limit: mism3_count.ix[len_limit - rev_pos - 1, key] += 1
+            if rev_pos < len_limit: mism3_count.ix[rev_pos, key] += 1
 
 
 def calc_frequencies(mism_counts, ref_count):
