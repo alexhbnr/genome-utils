@@ -32,7 +32,7 @@ def subsample_reads(bam, sample_size):
     return sampled_reads
 
 
-def plot_dist(bquals, bamfile, plotfile):
+def plot_dist(bquals, bamfile):
     '''Plot the distribution of base qualities.'''
     max_bqual = 60
 
@@ -41,19 +41,13 @@ def plot_dist(bquals, bamfile, plotfile):
     plt.xlabel('base quality [Phred scaled]')
     plt.ylabel('probability density')
 
-    # determine the plot output format from the specified image extension
-    plot_format = splitext(plotfile)[1][1:]
-
-    plt.savefig(plotfile, format=plot_format)
+    plt.savefig(basename(bamfile) + '.svg', format='svg')
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Analyze the distribution of '
         'base qualities in a subset of reads from a given BAM file')
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
-    parser.add_argument('--plotfile', help='Name of the output plot file '
-                        '(the format can be png, pdf, ps, eps, svg)',
-                        required=True)
     parser.add_argument('--subsample', help='Number of reads to sample',
                         default=10000)
     args = parser.parse_args(argv if argv else sys.argv[1:])
@@ -63,7 +57,7 @@ def main(argv=None):
 
     bquals = np.fromiter(chain.from_iterable(get_bquals(r) for r in reads),
                          np.int)
-    plot_dist(bquals, args.bam, args.plotfile)
+    plot_dist(bquals, args.bam)
 
 
 if __name__ == '__main__':
