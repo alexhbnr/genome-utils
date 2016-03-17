@@ -1,11 +1,12 @@
-import random
-import argparse
 import sys
-import signal
-import functools
-import math
+import argparse
+import random
 from collections import Counter
 from itertools import chain
+import signal
+import functools
+
+import math
 import pysam
 from pybedtools import BedTool
 
