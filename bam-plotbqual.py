@@ -1,9 +1,10 @@
 import sys
-from os.path import basename, splitext
 import argparse
 import random
-import pysam
 from itertools import islice, chain
+from os.path import basename, splitext
+
+import pysam
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns

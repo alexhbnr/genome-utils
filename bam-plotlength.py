@@ -1,6 +1,7 @@
 import argparse
 import os.path
 from collections import defaultdict
+
 import pysam
 import pandas as pd
 import matplotlib.pyplot as plt
