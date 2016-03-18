@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-def get_bquals(read):
+def bquals_in_read(read):
     '''Return a list of base qualities in a given read.'''
     return [ord(q) - 33 for q in read.qual]
 
@@ -30,6 +30,15 @@ def subsample_reads(bam, sample_size):
             sampled_reads[k] = read
 
     return sampled_reads
+
+
+def bquals_sample(bamfile, n_reads):
+    '''Get a sample of base qualities from a given BAM file.'''
+    bam = pysam.AlignmentFile(args.bam)
+    reads = subsample_reads(bam, n_reads)
+    bquals = np.fromiter(chain.from_iterable(bquals_in_read(r) for r in reads),
+                         np.int)
+    return bquals
 
 
 def plot_bqual_dist(bquals, bamfile):
@@ -59,9 +68,5 @@ if __name__ == '__main__':
                         default=10000)
     args = parser.parse_args()
 
-    bam = pysam.AlignmentFile(args.bam)
-    reads = subsample_reads(bam, args.subsample)
-
-    bquals = np.fromiter(chain.from_iterable(get_bquals(r) for r in reads),
-                         np.int)
+    bquals = bquals_sample(args.bam, args.subsample)
     save_bqual_dist(bquals, args.bam)
