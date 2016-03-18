@@ -32,33 +32,36 @@ def subsample_reads(bam, sample_size):
     return sampled_reads
 
 
-def plot_dist(bquals, bamfile):
+def plot_bqual_dist(bquals, bamfile):
     '''Plot the distribution of base qualities.'''
     max_bqual = 60
 
+    fig = plt.figure()
     plt.hist(bquals, bins=max_bqual, range=(0, max_bqual), normed=True)
     plt.title('Distribution of base qualities in ' + basename(bamfile))
     plt.xlabel('base quality [Phred scaled]')
     plt.ylabel('probability density')
 
+    return fig
+
+
+def save_bqual_dist(bquals, bamfile):
+    '''Save distribution of base qualities to a file.'''
+    fig = plot_bqual_dist(bquals, bamfile)
     plt.savefig('bqdist_' + basename(bamfile) + '.svg', format='svg')
 
 
-def main(argv=None):
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Analyze the distribution of '
         'base qualities in a subset of reads from a given BAM file')
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
     parser.add_argument('--subsample', help='Number of reads to sample',
                         default=10000)
-    args = parser.parse_args(argv if argv else sys.argv[1:])
+    args = parser.parse_args()
 
     bam = pysam.AlignmentFile(args.bam)
     reads = subsample_reads(bam, args.subsample)
 
     bquals = np.fromiter(chain.from_iterable(get_bquals(r) for r in reads),
                          np.int)
-    plot_dist(bquals, args.bam)
-
-
-if __name__ == '__main__':
-    main()
+    save_bqual_dist(bquals, args.bam)
