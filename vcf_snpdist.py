@@ -34,24 +34,24 @@ def count_snps(vcf_file, sample, chrom):
     return snp_counts
 
 
-def plot_snp_counts(snp_counts, sample):
+def plot_snp_counts(snp_counts, sample, asfreq=False):
     '''Plot distribution of substitution frequencies.'''
     snp_counts['freq'] = snp_counts['count'] / sum(snp_counts['count'])
 
-    fig = plt.figure()
+    which = 'freq' if asfreq else 'count'
 
-    sns.barplot(x='subst', y='freq', data=snp_counts)
-    # snp_counts.plot(figsize=(18, 9))
+    fig = plt.figure()
+    sns.barplot(x='subst', y=which, data=snp_counts)
     plt.title('Distribution of SNPs in sample ' + sample)
     plt.xlabel('SNP type')
-    plt.ylabel('frequency')
+    plt.ylabel(which)
 
     return fig
     
 
-def save_snp_counts(snp_counts, vcf_file, sample):
+def save_snp_counts(snp_counts, vcf_file, sample, asfreq):
     '''Save SNP count distribution plot to a file.'''
-    fig = plot_snp_counts(snp_counts, sample)
+    fig = plot_snp_counts(snp_counts, sample, asfreq)
     output_file = 'snp_counts__' + sample + '__' + os.path.basename(vcf_file) + '.svg'
     plt.savefig(output_file)
 
@@ -62,10 +62,12 @@ if __name__ == "__main__":
     parser.add_argument('--sample', help='Which sample to analyze',
                         required=True)
     parser.add_argument('--chrom', help='Chromosome', default='Y')
+    parser.add_argument('--asfreq', help='Plot as frequencies or counts?',
+                        action='store_true')
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
     args = parser.parse_args()
 
     snp_counts = count_snps(args.vcf, args.sample, args.chrom)
-    save_snp_counts(snp_counts, args.vcf, args.sample)
+    save_snp_counts(snp_counts, args.vcf, args.sample, args.asfreq)
 
 
