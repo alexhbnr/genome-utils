@@ -26,8 +26,8 @@ MISMATCHES = [mismatch(b1, b2) for b1 in BASES
                                for b2 in BASES if b1 != b2]
 
 
-def count_mismatches(mism5_count, mism3_count, ref5_count, ref3_count,
-                     ref_bases, read_bases, len_limit):
+def mismatches_in_read(mism5_count, mism3_count, ref5_count, ref3_count,
+                       ref_bases, read_bases, len_limit):
     '''Count the number of mismatches along a read as well as the
     composition of reference bases.
     '''
@@ -87,9 +87,9 @@ def count_mismatches(bam_path, len_limit=30):
                 ref_bases = ref_bases[::-1].translate(TR_TABLE)
                 read_bases = read_bases[::-1].translate(TR_TABLE)
 
-            count_mismatches(mism5_counts, mism3_counts,
-                             ref5_counts, ref3_counts,
-                             ref_bases, read_bases, len_limit)
+            mismatches_in_read(mism5_counts, mism3_counts,
+                               ref5_counts, ref3_counts,
+                               ref_bases, read_bases, len_limit)
 
     mism5_freqs = calc_frequencies(mism5_counts, ref5_counts)
     mism3_freqs = calc_frequencies(mism3_counts, ref3_counts)
