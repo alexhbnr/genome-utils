@@ -45,11 +45,11 @@ def plot_bqual_dist(bquals, bamfile):
     '''Plot the distribution of base qualities.'''
     max_bqual = 60
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(13, 9))
     plt.hist(bquals, bins=max_bqual, range=(0, max_bqual), normed=True)
-    plt.title('Distribution of base qualities in ' + basename(bamfile))
-    plt.xlabel('base quality [Phred scaled]')
-    plt.ylabel('probability density')
+    plt.title('Distribution of base qualities in ' + basename(bamfile), fontsize=20)
+    plt.xlabel('base quality [Phred scaled]', fontsize=16)
+    plt.ylabel('probability density', fontsize=16)
 
     return fig
 
