@@ -59,7 +59,7 @@ def calc_frequencies(mism_counts, ref_count):
                       for b in BASES), axis=1)
 
 
-def analyze_bam(bam_path, len_limit=15):
+def count_mismatches(bam_path, len_limit=15):
     '''Count the number of occurences of different substitutions in all
     reads as well as the total number of reads and the number of unmapped
     reads.
@@ -138,6 +138,6 @@ if __name__ == "__main__":
         print('The only valid substitution patterns are:', ', '.join(MISMATCHES))
         sys.exit()
 
-    mism5_freqs, mism3_freqs = analyze_bam(args.bam, args.len_limit)
+    mism5_freqs, mism3_freqs = count_mismatches(args.bam, args.len_limit)
     save_mismatches(mism5_freqs[args.which], 5, args.dir, args.bam, args.len_limit)
     save_mismatches(mism3_freqs[args.which], 3, args.dir, args.bam, args.len_limit)
