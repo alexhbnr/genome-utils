@@ -97,14 +97,15 @@ def analyze_bam(bam_path, len_limit=15):
     return mism5_freqs, mism3_freqs[::-1]
 
 
-def plot_mismatches(mism_freqs, read_end):
+def plot_mismatches(mism_freqs, read_end, bam_file):
     '''Plot the frequencies of mismatches.'''
     fig = plt.figure()
 
     end_str = str(read_end) + '\' end'
 
     mism_freqs.plot(linewidth=3, figsize=(13, 9), fontsize=15)
-    plt.title('mismatches from the ' + end_str, fontsize=20)
+    plt.title('mismatches from the ' + end_str + ' -- ' +
+              os.path.basename(bam_file), fontsize=20)
     plt.xlabel('position from the ' + end_str, fontsize=16)
     plt.ylabel('proportion of mismatches', fontsize=16)
     plt.xticks(range(0, len(mism_freqs), 5))
@@ -113,7 +114,7 @@ def plot_mismatches(mism_freqs, read_end):
 
     
 def save_mismatches(mismatch_table, read_end, output_dir, bam_file, len_limit):
-    fig = plot_mismatches(mismatch_table, read_end)
+    fig = plot_mismatches(mismatch_table, read_end, bam_file)
 
     end_str = str(read_end) + '_prime_end'
 
