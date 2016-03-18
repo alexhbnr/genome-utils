@@ -34,7 +34,7 @@ def subsample_reads(bam, sample_size):
 
 def bquals_sample(bamfile, n_reads):
     '''Get a sample of base qualities from a given BAM file.'''
-    bam = pysam.AlignmentFile(args.bam)
+    bam = pysam.AlignmentFile(bamfile)
     reads = subsample_reads(bam, n_reads)
     bquals = np.fromiter(chain.from_iterable(bquals_in_read(r) for r in reads),
                          np.int)
