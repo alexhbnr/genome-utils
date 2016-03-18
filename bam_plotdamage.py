@@ -59,7 +59,7 @@ def calc_frequencies(mism_counts, ref_count):
                       for b in BASES), axis=1)
 
 
-def count_mismatches(bam_path, len_limit=15):
+def count_mismatches(bam_path, len_limit=30):
     '''Count the number of occurences of different substitutions in all
     reads as well as the total number of reads and the number of unmapped
     reads.
