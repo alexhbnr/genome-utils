@@ -77,7 +77,9 @@ def count_mismatches(bam_path, len_limit=30):
     with pysam.AlignmentFile(bam_path, 'rb') as bamf:
         fastaf = pysam.FastaFile(ref_genome)
         
-        for read in bamf:
+        for (i, read) in enumerate(bamf):
+            if i % 1000 == 0: print(i, 'reads analyzed', end='\r')
+
             ref_bases = fastaf.fetch(read.reference_name,
                                      read.reference_start,
                                      read.reference_end)
