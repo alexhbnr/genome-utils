@@ -37,7 +37,7 @@ def save_length_dist(read_lengths, output_dir, bam_file):
     '''Plot the read length distribution to a file.'''
     fig = plot_length_dist(read_lengths, os.path.basename(bam_file))
 
-    output_img = 'read_lengths_' + os.path.basename(bam_file) + '.' + args.format
+    output_img = 'read_lengths_' + os.path.basename(bam_file) + '.svg'
     plt.savefig(os.path.join(output_dir, output_img))
 
 
@@ -46,8 +46,6 @@ if __name__ == "__main__":
                                      'in the given BAM file.')
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
-    parser.add_argument('--format', help='Format of the output image',
-                        default='png')
     args = parser.parse_args()
 
     read_lengths = count_read_lengths(args.bam)
