@@ -55,7 +55,6 @@ def plot_all_samples(depth_counts):
     plt.xlabel('coverage', fontsize=16)
     plt.ylabel('count', fontsize=16)
     plt.ylim(0, max(depth_counts.max()))
-    print(max(depth_counts.max()))
 
 
 if __name__ == "__main__":
