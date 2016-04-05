@@ -57,7 +57,8 @@ def save_snp_counts(snp_counts, vcf_file, sample, asfreq):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser('Plot distribution SNPs in a sample')
+    parser = argparse.ArgumentParser('Plot distribution of SNP counts in '
+                                     'a sample from a given VCF file')
     parser.add_argument('--vcf', help='VCF file to analyze', required=True)
     parser.add_argument('--sample', help='Which sample to analyze',
                         required=True)
