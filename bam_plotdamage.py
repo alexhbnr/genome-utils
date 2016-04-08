@@ -122,7 +122,7 @@ def save_mismatches(mismatch_table, read_end, output_dir, bam_file, len_limit):
 
     end_str = str(read_end) + '_prime_end'
 
-    output_file = 'subst_from_' + end_str + '__' + os.path.basename(bam_file) + '.png'
+    output_file = 'subst_from_' + end_str + '__' + os.path.basename(bam_file) + '.svg'
     plt.savefig(os.path.join(output_dir, output_file))
 
 
@@ -134,8 +134,6 @@ if __name__ == "__main__":
     parser.add_argument('--which', help='Which substitutions to plot?',
                         nargs='*', default=MISMATCHES)
     parser.add_argument('--dir', help='Where to put the plot?', default='.')
-    parser.add_argument('--format', help='Format of the output image',
-                        default='png')
     args = parser.parse_args()
 
     if not set(args.which).issubset(MISMATCHES):
