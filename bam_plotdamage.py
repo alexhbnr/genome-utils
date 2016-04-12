@@ -3,6 +3,8 @@
 import sys
 import argparse
 import os.path
+import random
+from itertools import islice
 from collections import defaultdict
 
 import pysam
@@ -78,10 +80,22 @@ def count_mismatches(bam_path, len_limit=30):
 
     with pysam.AlignmentFile(bam_path, 'rb') as bamf:
         fastaf = pysam.FastaFile(ref_genome)
+
+        sample_size = 100000
+        sampled_reads = [read for read in islice(bamf, sample_size)]
         
         for (i, read) in enumerate(bamf):
-            if i % 1000 == 0: print(i, 'reads analyzed', end='\r')
+            if i < sample_size: continue
 
+            k = random.randint(0, i - 1)
+            if k < sample_size:
+                sampled_reads[k] = read
+
+        print('Subsampling of ' + str(sample_size) + ' reads finished. '
+              'Analyzing damage patterns...')
+
+        for (i, read) in enumerate(sampled_reads):
+            if i % 5000 == 0: print(i, ' reads analyzed...', end='\r')
             ref_bases = fastaf.fetch(read.reference_name,
                                      read.reference_start,
                                      read.reference_end)
