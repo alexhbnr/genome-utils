@@ -31,6 +31,7 @@ def plot_length_dist(read_lengths, title):
     plt.title(title, fontsize=20)
     plt.xlabel('read length [bp]', fontsize=16)
     plt.ylabel('count', fontsize=16)
+    plt.xlim(0, max(read_lengths.index))
 
     return fig
 
