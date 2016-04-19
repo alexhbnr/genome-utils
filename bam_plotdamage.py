@@ -3,6 +3,8 @@
 import sys
 import argparse
 import os.path
+import random
+from itertools import islice
 from collections import defaultdict
 
 import pysam
@@ -60,7 +62,7 @@ def calc_frequencies(mism_counts, ref_count):
                       for b in BASES), axis=1)
 
 
-def count_mismatches(bam_path, len_limit=30):
+def count_mismatches(bam_path, len_limit=30, subsample=None):
     '''Count the number of occurences of different substitutions in all
     reads as well as the total number of reads and the number of unmapped
     reads.
@@ -77,10 +79,25 @@ def count_mismatches(bam_path, len_limit=30):
 
     with pysam.AlignmentFile(bam_path, 'rb') as bamf:
         fastaf = pysam.FastaFile(ref_genome)
-        
-        for (i, read) in enumerate(bamf):
-            if i % 1000 == 0: print(i, 'reads analyzed', end='\r')
 
+        if subsample:
+            sample_size = subsample
+            sampled_reads = [read for read in islice(bamf, sample_size)]
+
+            for (i, read) in enumerate(bamf):
+                if i < sample_size: continue
+
+                k = random.randint(0, i - 1)
+                if k < sample_size:
+                    sampled_reads[k] = read
+
+            print('Subsampling of ' + str(sample_size) + ' reads finished. '
+                  'Analyzing damage patterns...')
+        else:
+            sampled_reads = bamf
+
+        for (i, read) in enumerate(sampled_reads):
+            if i % 5000 == 0: print(i, ' reads analyzed...', end='\r')
             ref_bases = fastaf.fetch(read.reference_name,
                                      read.reference_start,
                                      read.reference_end)
@@ -128,6 +145,8 @@ def save_mismatches(mismatch_table, read_end, output_dir, bam_file, len_limit):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('Analyze damage patterns in a BAM file')
     parser.add_argument('--bam', help='BAM file to analyze', required=True)
+    parser.add_argument('--subsample', help='How many reads to subsample '
+                        'from the BAM file', type=int, default=None)
     parser.add_argument('--len_limit', help='How deep into reads to look '
                         'for damage?', type=int, default=30)
     parser.add_argument('--which', help='Which substitutions to plot?',
@@ -139,6 +158,7 @@ if __name__ == "__main__":
         print('The only valid substitution patterns are:', ', '.join(MISMATCHES))
         sys.exit()
 
-    mism5_freqs, mism3_freqs = count_mismatches(args.bam, args.len_limit)
+    mism5_freqs, mism3_freqs = count_mismatches(args.bam, args.len_limit,
+                                                args.subsample)
     save_mismatches(mism5_freqs[args.which], 5, args.dir, args.bam, args.len_limit)
     save_mismatches(mism3_freqs[args.which], 3, args.dir, args.bam, args.len_limit)
