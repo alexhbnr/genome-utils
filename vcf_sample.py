@@ -24,6 +24,10 @@ def sample_bases(reader, sample_name, print_fn, chrom, start=None, end=None):
             ref_base = record.REF
             alt_base = record.alleles[called_gt]
 
+            # since we're generating haploid calls, ALT genotype must be 1
+            # (even in cases when the original GT is something like 2/2)
+            if called_gt > 1: called_gt = 1
+
             print_fn(record.CHROM, record.POS, ref_base, alt_base, called_gt)
 
 
