@@ -37,7 +37,7 @@ def check_position(pos, read_len, is_reverse, strand_check):
         return False
 
 
-def damage_at_site(pileup_info, strand_check=None):
+def damage_at_site(pileup_info, strand_check=None, pos_check=False):
     '''Ignore the base in the pileup of reads in case that:
        A) reference is C
           and:
@@ -57,20 +57,22 @@ def damage_at_site(pileup_info, strand_check=None):
     ref_base, read_base, pos_in_read, read_len, reverse_strand, _ = pileup_info
 
     # if there is a C->T (on forward strand) or G->A (on reverse strand)
-    # substitution at this site...
-    if ((read_base == 'T' and not reverse_strand) or \
-        (read_base == 'A' and     reverse_strand)):
-        # ... check if it occured on a position likely to carry aDNA damage
+    # at this site or if only checking for positions with increased damage...
+    if (pos_check or \
+       (read_base == 'T' and not reverse_strand) or \
+       (read_base == 'A' and     reverse_strand)):
+        # ... check for position in a read
         return check_position(pos_in_read, read_len, reverse_strand,
                               strand_check)
     return False
 
- 
-def filter_damage(pileup_column, strand_check):
+
+def filter_damage(pileup_column, strand_check, pos_check):
     '''Filter out bases in a given pileup column that are likely result
-    of DNA damage (C->T on forward strand, G->A on reverse strand)    '''
+    of DNA damage (C->T on forward strand, G->A on reverse strand).
+    '''
     return [pileup_info for pileup_info in pileup_column
-                        if not damage_at_site(pileup_info, strand_check)]
+                        if not damage_at_site(pileup_info, strand_check, pos_check)]
 
 
 def filter_bqual(pileup_column, minbq):
@@ -130,7 +132,8 @@ def bases_in_column(column, ref_base):
 
 
 def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
-                 maxcov, strand_check=None, chrom=None, start=None, end=None):
+                 maxcov, strand_check=None, pos_check=False,
+                 chrom=None, start=None, end=None):
     '''Sample bases in a given region of the genome based on the pileup
     of reads. If no coordinates were specified, sample from the whole BAM file.
     '''
@@ -148,7 +151,7 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
             # filter out this position if it does not pass the coverage filter
             if not (mincov <= len(pileup_bases) <= maxcov): continue
             # filter out low qual bases or those that are most likely damage
-            if strand_check: pileup_bases = filter_damage(pileup_bases, strand_check)
+            if strand_check: pileup_bases = filter_damage(pileup_bases, strand_check, pos_check)
             # filter out low quality bases
             if minbq > 0: pileup_bases = filter_bqual(pileup_bases, minbq)
 
@@ -160,15 +163,17 @@ def sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
                              called_base, len(pileup_bases))
 
 
-def sample_in_regions(bam, bed, ref, sampling_method, print_fn,
-                      minbq, mincov, maxcov, strand_check=None):
+def sample_in_regions(bam, bed, ref, sampling_method, print_fn, minbq,
+                      mincov, maxcov, strand_check=None,
+                      pos_check=False):
     '''Sample alleles from the BAM file at each position specified in a BED
     file. Return the result as a list of tuples in the form of
     (chromosome, position, ref_base, called_base).
     '''
     for region in bed:
-        sample_bases(bam, ref, sampling_method, print_fn, minbq, mincov,
-                     maxcov, strand_check, region.chrom, region.start, region.end)
+        sample_bases(bam, ref, sampling_method, print_fn, minbq,
+                     mincov, maxcov, strand_check, pos_check,
+                     region.chrom, region.start, region.end)
 
 
 def print_vcf_header(sample_name, handle):
@@ -209,6 +214,8 @@ def main(argv=None):
                         'damage? If not specified, no checks are performed.',
                         choices=['USER', 'USER_term5', 'non-USER_term3',
                                  'non-USER_all'], default=None)
+    parser.add_argument('--pos-check', help='Check only for positions in a read'
+                        ' without looking at bases', action='store_true')
     parser.add_argument('--minbq', help='Minimal quality of a base to be '
                         'considered for sampling (inclusive)', type=int,
                         default=0)
@@ -223,6 +230,10 @@ def main(argv=None):
 
     if args.format == 'VCF' and not args.sample_name:
         parser.error('Sample has to be specified when outputting to VCF')
+
+    if args.pos_check and not args.strand_check:
+        parser.error('Library prep. method has to be specified when'
+                     ' checking for positions')
 
     bam = pysam.AlignmentFile(args.bam)
     ref = pysam.FastaFile(args.ref)
@@ -243,11 +254,11 @@ def main(argv=None):
         bed = BedTool(args.bed)
         sample_in_regions(bam, bed, ref, args.method, print_fn,
                           args.minbq, args.mincov, args.maxcov,
-                          args.strand_check)
+                          args.strand_check, args.pos_check)
     else: # otherwise scan the whole BAM file directly
         sample_bases(bam, ref, args.method, print_fn, args.minbq,
                      args.mincov, args.maxcov, args.strand_check,
-                     args.chrom)
+                     args.pos_check, args.chrom)
 
     if args.output:
         handle.close()
